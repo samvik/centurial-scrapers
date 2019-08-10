@@ -1,8 +1,9 @@
 ﻿using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace RiksarkivetScraper
+namespace CenturialScrapers
 {
     public class Label
     {
@@ -16,7 +17,26 @@ namespace RiksarkivetScraper
     public class Metadata
     {
         public List<Label> Label { get; set; }
-        public List<string> Value { get; set; }
+
+        [JsonProperty("value")]
+        public List<object> ValueObjects { get; set; }
+
+        [JsonIgnore]
+        public string Value
+        {
+            get
+            {
+                switch(ValueObjects.Last())
+                {
+                    case string v:
+                        return v;
+                    case JObject jobj:
+                        return jobj["@value"].ToString();
+                    default:
+                        return "";
+                }                
+            }
+        }
     }
 
     public class Service
@@ -78,8 +98,7 @@ namespace RiksarkivetScraper
 
         public string GetLabel(string language)
         {
-            var label = Label.SingleOrDefault(x => x.Language == language);
-            return label?.Value;
+            return Label.SingleOrDefault(x => x.Language == language)?.Value;
         }
     }
 
@@ -117,15 +136,14 @@ namespace RiksarkivetScraper
 
         public static string GetMetadata(List<Metadata> metadata, string label)
         {
-            var values = metadata.Single(x => x.Label.Any(y => y.Value == label)).Value;
-            return string.Join(", ", values);
+            return metadata.SingleOrDefault(x => x.Label.Any(y => y.Value == label))?.Value;
         }
 
         public Canvas GetCanvas(string imageId)
         {
             var canvas = Sequences
                 .SelectMany(x => x.Canvases)
-                .SingleOrDefault(x => x.GetMetadata("Image ID") == imageId);
+                .Single(x => x.GetMetadata("Image ID") == imageId);
 
             return canvas;
         }

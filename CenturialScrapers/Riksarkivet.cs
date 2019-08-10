@@ -1,207 +1,170 @@
 ﻿using Acoose.Genealogy.Extensibility.Data;
 using Acoose.Genealogy.Extensibility.Data.References;
 using Acoose.Genealogy.Extensibility.Web;
-using HtmlAgilityPack;
 using Newtonsoft.Json;
-using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Net;
-using System.Net.Http;
-using System.Security.Permissions;
 using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 
-namespace RiksarkivetScraper
+namespace CenturialScrapers
 {
     [Scraper("https://sok.riksarkivet.se/bildvisning/*")]
     public class Riksarkivet : Scraper.Default
     {
-        private const string iiifServer = "https://lbiiif.riksarkivet.se/arkis!";
-
-        private string volumeId;
-        private string pageId;
+        private const string apiServer = "https://lbiiif.riksarkivet.se/arkis!";
         private string imageId;
-
-        private string archive;
-        private string serie;
-        private string referenceCode;
-        private string date;
-        
-        private string link;
-        private string sourceReference;
-        private string imageUrl;
-
-        private int[] parsedDate;
-        private string page;
 
         public override IEnumerable<Activity> GetActivities(Context context)
         {
-            // Option 1: Parse page
-            archive = GetAttribute(context.Html, "_arkiv");
-            serie = GetAttribute(context.Html, "_serie");
-            referenceCode = GetAttribute(context.Html, "_referenskod");
-            date = GetAttribute(context.Html, "_datering");
-            imageId = GetAttribute(context.Html, "_bildid");
-            link = GetAttribute(context.Html, "_l__00e4nk");
+            // Get relevant data from the url
+            var match = Regex.Match(context.Url, "^https://sok.riksarkivet.se/bildvisning/(\\S{8})_(\\d{5})#?.*$");
+            var volumeId = match.Groups[1].Value;
+            var pageId = match.Groups[2].Value;
+            imageId = $"{volumeId}_{pageId}";
 
-            //The citing on the site can be truncated, construct it from previously fetched data.
-            sourceReference = GetAttribute(context.Html, "_k__00e4llh__00e4nvisning");
-            sourceReference = $"{archive}, {serie}, {referenceCode} ({date}), bildid: {imageId}";
+            var manifestUrl = $"{apiServer}{volumeId}/manifest";
 
-            imageUrl = $"{iiifServer}{imageId}/full/full/0/default.jpg";
-            page = imageId.Split('_').Last();
-            parsedDate = date.Split('-').Select(x => int.Parse(x)).ToArray();
+            // This is not optimal, the image url should be taken from the json manifest 
+            // but we need it already here in order to create the download activity.
+            var imageUrl = $"{apiServer}{imageId}/full/full/0/default.jpg";
 
-            // Option 2, Iiif Presentation API
-            //var match = Regex.Match(context.Url, "^https?://sok.riksarkivet.se/bildvisning/(\\S{8})_(\\d{5})#?.*$");
-            //volumeId = match.Groups[1].Value;
-            //pageId = match.Groups[2].Value;
-            //imageId = $"{volumeId}_{pageId}";
-
-            //var manifest = GetManifest(volumeId).Result;
-
-            //// Volume Information
-            //archive = manifest.GetMetadata("Archive");
-            //serie = manifest.GetMetadata("Serie");
-            //referenceCode = manifest.GetMetadata("Reference code");
-            //date = manifest.GetMetadata("Date");
-
-            //// Image information
-            //var canvas = manifest.GetCanvas(imageId);
-            //link = canvas.GetMetadata("Link");
-            //sourceReference = canvas.GetMetadata("Source reference");
-            //imageUrl = canvas.Images.First().Resource.Id;
-
-            //var label = canvas.GetLabel("en-GB");
-            //var labelMatch = Regex.Match(label, "^Image (\\d+)(?: / Page (\\d+))?$");
-            //var imageNr = labelMatch.Groups[1].Value;
-            //page = labelMatch.Groups[2].Value;
-
-            //parsedDate = date.Split('-').Select(x => int.Parse(x)).ToArray();
-
-            yield return new Activity.DownloadFileActivity(imageUrl);
+            return new Activity[] {
+                new Activity.DownloadFileActivity(manifestUrl) ,
+                new Activity.DownloadFileActivity(imageUrl)
+            };
         }
 
-        protected override IEnumerable<Acoose.Genealogy.Extensibility.Data.File> GetFiles(Context context, Activity[] activities)
+        public override Acoose.Genealogy.Extensibility.Data.Source GetSource(Context context, Activity[] activities)
         {
-            foreach (var activity in activities.OfType<Activity.DownloadFileActivity>())
+            var fileActivities = activities.OfType<Activity.DownloadFileActivity>();
+            var sourceData = LoadManifest(fileActivities);
+
+            return new Acoose.Genealogy.Extensibility.Data.Source
             {
-                var extension = Path.GetExtension(activity.OriginalName);
-                yield return new Acoose.Genealogy.Extensibility.Data.File()
-                {
-                    OriginalName = $"{imageId}.{extension}",
-                    Raw = activity.Raw
-                };
-            }   
+                Provenance = GetRepositories(sourceData).ToArray(),
+                Files = GetFiles(fileActivities).ToArray()
+            };
         }
 
-        protected override IEnumerable<Repository> GetProvenance(Context context)
+        private SourceData LoadManifest(IEnumerable<Activity.DownloadFileActivity> fileActivities)
         {
-            // Layer 1: Digital Image
-            yield return new Website()
+            var manifestActivity = fileActivities.Single(x => x.MimeType == "application/json");
+
+            var manifestJson = Encoding.UTF8.GetString(manifestActivity.Raw);
+            var manifest = JsonConvert.DeserializeObject<IiifManifest>(manifestJson);
+            var canvas = manifest.GetCanvas(imageId);
+
+            return new SourceData
+            {
+                // Volume Information
+                Archive = manifest.GetMetadata("Archive"),
+                Serie = manifest.GetMetadata("Serie"),
+                ReferenceCode = manifest.GetMetadata("Reference code"),
+                Date = manifest.GetMetadata("Date"),
+                Remark = manifest.GetMetadata("Remark"),
+
+                // Image information
+                Label = canvas.GetLabel("en-GB"),
+                Link = canvas.GetMetadata("Link"),
+                SourceReference = canvas.GetMetadata("Source reference"),
+                ImageUrl = canvas.Images.First().Resource.Id
+            };
+        }
+
+        private List<Repository> GetRepositories(SourceData data)
+        {
+            var repositories = new List<Repository>();
+
+            repositories.Add(new Website()
             {
                 Title = "Riksarkivet",
                 Url = "https://sok.riksarkivet.se/",
                 IsVirtualArchive = true,
                 Items = new OnlineItem[]
-                {
+               {
                     new OnlineItem()
                     {
                         Item = new OnlineCollection()
                         {
-                            Title = archive,
+                            Title = data.Archive,
                             Items = new OnlineItem[]
                             {
                                 new OnlineItem()
                                 {
                                     Accessed = Date.Today,
-                                    Url = link,
+                                    Url = data.Link,
                                     Item = new DigitalImage()
                                     {
-                                        CreditLine = sourceReference
+                                        CreditLine = data.SourceReference
                                     }
                                 }
                             }
                         }
                     }
-                }
-            };
+               }
+            });
 
             // Layer 2
-            if (archive.Contains("kyrkoarkiv") || archive.Contains("församling"))
+            if (data.Archive.Contains("kyrkoarkiv") || data.Archive.Contains("församling"))
             {
                 // Church Record
-                yield return new None()
+                repositories.Add(new None()
                 {
                     Items = new Acoose.Genealogy.Extensibility.Data.References.Source[]
                     {
                         new ChurchRecord()
                         {
-                            Title = new GenericTitle(){Value = serie, Literal=false },
-                            Church = archive,
-                            Place = archive,
+                            Title = new GenericTitle(){Value = data.Serie, Literal=false },
+                            Church = data.Archive,
+                            Place = data.Archive,
                             Items = new RecordScriptFormat[]
                             {
                                 new RecordScriptFormat() {
-                                    Volume = referenceCode,
-                                    Page = page,
-                                    Date = Date.Between(Calendar.Swedish, new int?[] { parsedDate[0] }, new int?[] { parsedDate[1] })
+                                    Volume = data.ReferenceCode,
+                                    Page = data.Page,
+                                    Date = Date.Between(Calendar.Swedish, new int?[] { data.ParsedDate[0] }, new int?[] { data.ParsedDate[1] })
                                 }
                             }
                         }
                     }
-                };
+                });
             }
             else
             {
                 // Unspecified
-                yield return new None()
+                repositories.Add(new None()
                 {
                     Items = new Acoose.Genealogy.Extensibility.Data.References.Source[]
                     {
                         new Unspecified()
                         {
-                            CreditLine = sourceReference
+                            CreditLine = data.SourceReference
                         }
                     }
-                };
+                });
             }
 
+            return repositories;
         }
 
-        //[WebPermission(SecurityAction.Assert, Unrestricted = true)]
-        private static async Task<IiifManifest> GetManifest(string volumeId)
+        private List<Acoose.Genealogy.Extensibility.Data.File> GetFiles(IEnumerable<Activity.DownloadFileActivity> fileActivities)
         {
-            var url = $"https://lbiiif.riksarkivet.se/arkis!{volumeId}/manifest";
-
-            using (HttpClient client = new HttpClient())
-            using (HttpResponseMessage response = await client.GetAsync(url))
-            using (HttpContent content = response.Content)
+            var files = new List<Acoose.Genealogy.Extensibility.Data.File>();
+            foreach (var activity in fileActivities.Where(x => x.MimeType.StartsWith("image/")))
             {
-                string result = await content.ReadAsStringAsync();
-                var manifest = JsonConvert.DeserializeObject<IiifManifest>(result);
-                return manifest;
+                var extension = Path.GetExtension(activity.OriginalName);
+                var file = new Acoose.Genealogy.Extensibility.Data.File()
+                {
+                    OriginalName = $"{imageId}.{extension}",
+                    Raw = activity.Raw
+                };
+
+                files.Add(file);
             }
 
-            throw new SystemException("Unable to get manifest.");
-        }
-
-        private static string GetAttribute(HtmlNode html, string name)
-        {
-            var container = html.Descendants("div").Single(d => d.GetAttributeValue("class", "").Contains(name));
-            var values = container.Descendants("div").Where(d => d.GetAttributeValue("class", "") == "value");
-
-            return string.Join("; ", values.Select(x => x.InnerText));
-        }
-
-        private static string[] SplitOnLast(char separator, string input)
-        {
-            int index = input.LastIndexOf(separator);
-            return new string[]{ input.Substring(0, index), input.Substring(index+1)};
+            return files;
         }
 
     }
