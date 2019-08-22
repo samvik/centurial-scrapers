@@ -8,7 +8,7 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 
-namespace CenturialScrapers
+namespace Scrapers
 {
     [Scraper("https://sok.riksarkivet.se/bildvisning/*")]
     public class Riksarkivet : Scraper.Default
@@ -50,7 +50,9 @@ namespace CenturialScrapers
 
         private SourceData LoadManifest(IEnumerable<Activity.DownloadFileActivity> fileActivities)
         {
-            var manifestActivity = fileActivities.Single(x => x.MimeType == "application/json");
+
+            //var manifestActivity = fileActivities.Single(x => x.MimeType == "application/json");
+            var manifestActivity = fileActivities.Single(x => x.OriginalName == "manifest");
 
             var manifestJson = Encoding.UTF8.GetString(manifestActivity.Raw);
             var manifest = JsonConvert.DeserializeObject<IiifManifest>(manifestJson);
@@ -59,7 +61,7 @@ namespace CenturialScrapers
             return new SourceData
             {
                 // Volume Information
-                Archive = manifest.GetMetadata("Archive"),
+                Archive = ArchiveInformation.Parse(manifest.GetMetadata("Archive")),
                 Serie = manifest.GetMetadata("Serie"),
                 ReferenceCode = manifest.GetMetadata("Reference code"),
                 Date = manifest.GetMetadata("Date"),
@@ -88,7 +90,7 @@ namespace CenturialScrapers
                     {
                         Item = new OnlineCollection()
                         {
-                            Title = data.Archive,
+                            Title = data.Archive.Archive,
                             Items = new OnlineItem[]
                             {
                                 new OnlineItem()
@@ -97,7 +99,7 @@ namespace CenturialScrapers
                                     Url = data.Link,
                                     Item = new DigitalImage()
                                     {
-                                        CreditLine = data.SourceReference
+                                        //CreditLine = data.SourceReference
                                     }
                                 }
                             }
@@ -107,7 +109,7 @@ namespace CenturialScrapers
             });
 
             // Layer 2
-            if (data.Archive.Contains("kyrkoarkiv") || data.Archive.Contains("församling"))
+            if (data.Archive.Archive.Contains("kyrkoarkiv") || data.Archive.Archive.Contains("församling"))
             {
                 // Church Record
                 repositories.Add(new None()
@@ -117,14 +119,14 @@ namespace CenturialScrapers
                         new ChurchRecord()
                         {
                             Title = new GenericTitle(){Value = data.Serie, Literal=false },
-                            Church = data.Archive,
-                            Place = data.Archive,
+                            Church = data.Archive.Parish,
+                            Place = data.Archive.Place,
                             Items = new RecordScriptFormat[]
                             {
                                 new RecordScriptFormat() {
                                     Volume = data.ReferenceCode,
                                     Page = data.Page,
-                                    Date = Date.Between(Calendar.Swedish, new int?[] { data.ParsedDate[0] }, new int?[] { data.ParsedDate[1] })
+                                    //Date = Date.Between(Calendar.Swedish, new int?[] { data.ParsedDate[0] }, new int?[] { data.ParsedDate[1] })
                                 }
                             }
                         }
@@ -166,6 +168,7 @@ namespace CenturialScrapers
 
             return files;
         }
-
+        
     }
+
 }

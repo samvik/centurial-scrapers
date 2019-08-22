@@ -3,8 +3,8 @@ using Newtonsoft.Json.Linq;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace CenturialScrapers
-{
+namespace Scrapers
+{ 
     public class Label
     {
         [JsonProperty("@value")]

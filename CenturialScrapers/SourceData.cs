@@ -1,7 +1,7 @@
 ﻿using System.Linq;
 using System.Text.RegularExpressions;
 
-namespace CenturialScrapers
+namespace Scrapers
 {
     class SourceData
     {
@@ -10,7 +10,7 @@ namespace CenturialScrapers
         public string ImageId { get; set; }
 
         public string Label { get; set; }
-        public string Archive { get; set; }
+        public ArchiveInformation Archive { get; set; }
         public string Serie { get; set; }
         public string ReferenceCode { get; set; }
         public string Date { get; set; }
