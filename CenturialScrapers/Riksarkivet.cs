@@ -99,7 +99,7 @@ namespace Scrapers
                                     Url = data.Link,
                                     Item = new DigitalImage()
                                     {
-                                        //CreditLine = data.SourceReference
+                                        CreditLine = data.ReferenceCode
                                     }
                                 }
                             }
@@ -118,15 +118,15 @@ namespace Scrapers
                     {
                         new ChurchRecord()
                         {
-                            Title = new GenericTitle(){Value = data.Serie, Literal=false },
+                            Title = new GenericTitle(){ Value = data.Serie, Literal=false },
                             Church = data.Archive.Parish,
                             Place = data.Archive.Place,
                             Items = new RecordScriptFormat[]
                             {
                                 new RecordScriptFormat() {
-                                    Volume = data.ReferenceCode,
+                                    Volume = data.Volume,
                                     Page = data.Page,
-                                    //Date = Date.Between(Calendar.Swedish, new int?[] { data.ParsedDate[0] }, new int?[] { data.ParsedDate[1] })
+                                    Label = data.Date
                                 }
                             }
                         }
@@ -142,7 +142,7 @@ namespace Scrapers
                     {
                         new Unspecified()
                         {
-                            CreditLine = data.SourceReference
+                            CreditLine = data.Archive.Archive
                         }
                     }
                 });

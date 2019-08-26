@@ -3,11 +3,8 @@ using System.Text.RegularExpressions;
 
 namespace Scrapers
 {
-    class SourceData
+    public class SourceData
     {
-        public string VolumeId { get; set; }
-        public string PageId { get; set; }
-        public string ImageId { get; set; }
 
         public string Label { get; set; }
         public ArchiveInformation Archive { get; set; }
@@ -24,8 +21,12 @@ namespace Scrapers
 
         public string Page {
             get {
-                var labelMatch = Regex.Match(Label, "^Image (\\d+)(?: / Page (\\d+))?$");
-                return labelMatch.Groups[2].Value;
+                if (Label != null)
+                {
+                    var labelMatch = Regex.Match(Label, "^Image (\\d+)(?: / Page ([\\d\\w]+))?$");
+                    return labelMatch.Groups[2].Value;
+                }
+                return "";
             }
         }
 
@@ -33,8 +34,26 @@ namespace Scrapers
         {
             get
             {
-                var labelMatch = Regex.Match(Label, "^Image (\\d+)(?: / Page (\\d+))?$");
-                return labelMatch.Groups[1].Value;
+                if (Label != null)
+                {
+                    var labelMatch = Regex.Match(Label, "^Image (\\d+)(?: / Page (\\d+))?$");
+                    return labelMatch.Groups[1].Value;
+                }
+                return "";
+            }
+        }
+
+        public string Volume
+        {
+            get
+            {
+                if (Remark != null)
+                {
+                    var labelMatch = Regex.Match(Remark, "Volym ([\\w\\d]+)\\b");
+                    return labelMatch.Groups[1].Value;
+                }
+
+                return "";                
             }
         }
     }
