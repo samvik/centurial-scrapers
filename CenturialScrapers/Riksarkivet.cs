@@ -31,7 +31,7 @@ namespace Scrapers
             var imageUrl = $"{apiServer}{imageId}/full/full/0/default.jpg";
 
             return new Activity[] {
-                new Activity.DownloadFileActivity(manifestUrl) ,
+                new Activity.DownloadFileActivity(manifestUrl),
                 new Activity.DownloadFileActivity(imageUrl)
             };
         }
@@ -51,7 +51,6 @@ namespace Scrapers
         private SourceData LoadManifest(IEnumerable<Activity.DownloadFileActivity> fileActivities)
         {
 
-            //var manifestActivity = fileActivities.Single(x => x.MimeType == "application/json");
             var manifestActivity = fileActivities.Single(x => x.OriginalName == "manifest");
 
             var manifestJson = Encoding.UTF8.GetString(manifestActivity.Raw);
@@ -79,13 +78,14 @@ namespace Scrapers
         {
             var repositories = new List<Repository>();
 
+            // Layer 1
             repositories.Add(new Website()
             {
                 Title = "Riksarkivet",
                 Url = "https://sok.riksarkivet.se/",
                 IsVirtualArchive = true,
                 Items = new OnlineItem[]
-               {
+                {
                     new OnlineItem()
                     {
                         Item = new OnlineCollection()
@@ -105,7 +105,7 @@ namespace Scrapers
                             }
                         }
                     }
-               }
+                }
             });
 
             // Layer 2

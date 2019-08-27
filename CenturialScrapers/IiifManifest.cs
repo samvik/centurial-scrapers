@@ -4,7 +4,10 @@ using System.Collections.Generic;
 using System.Linq;
 
 namespace Scrapers
-{ 
+{
+
+    // See https://iiif.io/api/presentation/2.0/#manifest unfortunatelly riksarkivet does 
+    // not seem to implement this protocol fully.
     public class Label
     {
         [JsonProperty("@value")]

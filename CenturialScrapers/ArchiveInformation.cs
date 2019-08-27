@@ -9,8 +9,8 @@ namespace Scrapers
         public string Parish { get; set; }
 
         private ArchiveInformation()
-        { }
-
+        {
+        }
 
         public static ArchiveInformation Parse(string archive)
         {
@@ -39,6 +39,7 @@ namespace Scrapers
                 }
             }
 
+            // Assume that the first word is the place.
             if (!done)
             {
                 var match = Regex.Match(input, "^(?<parish>(?<place>\\w+)(?:\\b).*)$");
@@ -52,6 +53,8 @@ namespace Scrapers
 
             if (done)
             {
+                // Will not work in all cases but place names ending with s is not as frequent 
+                // compared to the use of place name ending in s to express ownership.
                 place = place.Trim().TrimEnd('s');
                 parish = RemoveWord(parish, "kyrkoarkiv").Trim();
                 parish = Replace(parish, "församlings", "församling");

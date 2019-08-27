@@ -1,9 +1,4 @@
 ﻿using NUnit.Framework;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Scrapers.Unit
 {
@@ -17,7 +12,6 @@ namespace Scrapers.Unit
         [TestCase("Hovrättens över Skåne och Blekinge arkiv 1821-1947", "")]
         [TestCase("", "")]
         [TestCase(null, "")]
-
         public void ParserTest(string remark, string volume)
         {
             var sourceData = new SourceData
