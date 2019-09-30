@@ -112,7 +112,7 @@ namespace Scrapers
             if (data.Archive.Archive.Contains("kyrkoarkiv") || data.Archive.Archive.Contains("församling"))
             {
                 // Church Record
-                repositories.Add(new None()
+                repositories.Add(new UnknownRepository()
                 {
                     Items = new Acoose.Genealogy.Extensibility.Data.References.Source[]
                     {
@@ -136,7 +136,7 @@ namespace Scrapers
             else
             {
                 // Unspecified
-                repositories.Add(new None()
+                repositories.Add(new UnknownRepository()
                 {
                     Items = new Acoose.Genealogy.Extensibility.Data.References.Source[]
                     {
